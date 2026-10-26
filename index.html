@@ -1,0 +1,318 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Occlusion 2026 Entry Scanner</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: #173b72;
+      color: white;
+      padding: 20px;
+      border-radius: 14px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .header h2 {
+      margin: 0 0 8px;
+    }
+
+    .card {
+      background: white;
+      padding: 18px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px #00000012;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 7px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    input, select {
+      border: 1px solid #cbd5e1;
+      background: white;
+    }
+
+    button {
+      border: none;
+      background: #185abd;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+    }
+
+    .stop {
+      background: #475569;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    #result {
+      padding: 15px;
+      margin-top: 16px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      overflow-wrap: anywhere;
+      line-height: 1.7;
+    }
+
+    .valid {
+      background: #dcfce7 !important;
+      color: #166534;
+    }
+
+    .invalid {
+      background: #fee2e2 !important;
+      color: #991b1b;
+    }
+
+    .note {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    hr {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h2>Occlusion 2026</h2>
+      <div>QR Entry Verification System</div>
+    </div>
+
+    <div class="card">
+
+      <label for="gate">Entry Gate</label>
+      <input id="gate" type="text" value="Main Gate"
+             placeholder="Enter gate name">
+
+      <label for="day">Event Day</label>
+      <select id="day">
+        <option value="1">Day 1</option>
+        <option value="2">Day 2</option>
+        <option value="3">Day 3</option>
+      </select>
+
+      <button id="startBtn" onclick="startScanner()">
+        Start QR Scanner
+      </button>
+
+      <button class="stop" onclick="stopScanner()">
+        Stop Scanner
+      </button>
+
+      <div id="reader"></div>
+
+      <p class="note">
+        Camera permission allow karein. QR code scan hone ke baad
+        attendee ka record verify hoga.
+      </p>
+
+      <hr>
+
+      <label for="manualId">Manual Unique ID</label>
+      <input id="manualId" type="text"
+             placeholder="Example: ITSOCC26001"
+             autocomplete="off">
+
+      <button onclick="submitManual()">Verify ID</button>
+
+      <div id="result" role="status" aria-live="polite">
+        Ready. Scanner start karein ya Unique ID enter karein.
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let scanner = null;
+    let scannerRunning = false;
+    let requestInProgress = false;
+    let lastScannedId = "";
+
+    function showMessage(message, status) {
+      const box = document.getElementById("result");
+      box.className = "";
+
+      if (status === true) box.classList.add("valid");
+      if (status === false) box.classList.add("invalid");
+
+      box.textContent = message;
+    }
+
+    function startScanner() {
+      if (typeof Html5Qrcode === "undefined") {
+        showMessage(
+          "Scanner library load nahi hui. Internet connection check karein.",
+          false
+        );
+        return;
+      }
+
+      if (scannerRunning) {
+        showMessage("Scanner already running hai.", null);
+        return;
+      }
+
+      if (!scanner) {
+        scanner = new Html5Qrcode("reader");
+      }
+
+      showMessage("Camera start ho raha hai...", null);
+
+      scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        function(decodedText) {
+          if (requestInProgress) return;
+
+          const id = String(decodedText || "").trim();
+          if (!id) return;
+
+          lastScannedId = id;
+          verifyEntry(id);
+        },
+        function() {
+          // Normal scan-frame misses are ignored.
+        }
+      ).then(function() {
+        scannerRunning = true;
+        document.getElementById("startBtn").disabled = true;
+        showMessage("Camera ready. QR code scan karein.", null);
+      }).catch(function(error) {
+        scannerRunning = false;
+        showMessage(
+          "Camera start nahi hua: " + String(error) +
+          ". Chrome site settings mein Camera Allow karein.",
+          false
+        );
+      });
+    }
+
+    async function stopScanner() {
+      if (scanner && scannerRunning) {
+        try {
+          await scanner.stop();
+        } catch (e) {
+          // Scanner may already have stopped.
+        }
+      }
+
+      scannerRunning = false;
+      document.getElementById("startBtn").disabled = false;
+      showMessage("Scanner stopped.", null);
+    }
+
+    function submitManual() {
+      const id = document.getElementById("manualId").value.trim();
+
+      if (!id) {
+        showMessage("Pehle Unique ID enter karein.", false);
+        return;
+      }
+
+      verifyEntry(id);
+    }
+
+    function verifyEntry(id) {
+      if (requestInProgress) return;
+
+      requestInProgress = true;
+      showMessage("Checking ID: " + id + "...", null);
+
+      const gate =
+        document.getElementById("gate").value.trim() || "Main Gate";
+      const day = document.getElementById("day").value;
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          requestInProgress = false;
+
+          const box = document.getElementById("result");
+          box.className = data.ok ? "valid" : "invalid";
+
+          box.replaceChildren();
+
+          const heading = document.createElement("strong");
+          heading.textContent = data.result;
+          box.appendChild(heading);
+
+          [
+            ["Unique ID", data.id],
+            ["Name", data.name || "Not found"],
+            ["Gate", data.gate],
+            ["Time", data.time]
+          ].forEach(function(item) {
+            const line = document.createElement("div");
+            line.textContent = item[0] + ": " + item[1];
+            box.appendChild(line);
+          });
+
+          document.getElementById("manualId").value = "";
+
+          // Scanner remains active for the next attendee.
+          // Every successful server request is logged separately.
+        })
+        .withFailureHandler(function(error) {
+          requestInProgress = false;
+          showMessage(
+            "Server error: " +
+            (error && error.message ? error.message : error),
+            false
+          );
+        })
+        .scanEntry(id, gate, day);
+    }
+  </script>
+</body>
+</html>
