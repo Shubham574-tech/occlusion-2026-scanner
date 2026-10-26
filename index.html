@@ -1,318 +1,246 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Occlusion 2026 Entry Scanner</title>
-
-  <script src="https://unpkg.com/html5-qrcode"></script>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>Occlusion 2026 | Entry Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
+    :root { color-scheme: light; --navy:#111827; --blue:#1d4ed8; --green:#166534; --red:#991b1b; --amber:#92400e; }
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      padding: 16px;
-      font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      color: #172033;
-    }
-
-    .container {
-      max-width: 480px;
-      margin: 0 auto;
-    }
-
-    .header {
-      background: #173b72;
-      color: white;
-      padding: 20px;
-      border-radius: 14px;
-      text-align: center;
-      margin-bottom: 16px;
-    }
-
-    .header h2 {
-      margin: 0 0 8px;
-    }
-
-    .card {
-      background: white;
-      padding: 18px;
-      border-radius: 14px;
-      box-shadow: 0 3px 12px #00000012;
-      margin-bottom: 16px;
-    }
-
-    label {
-      display: block;
-      margin-top: 12px;
-      font-weight: bold;
-      font-size: 14px;
-    }
-
-    input, select, button {
-      width: 100%;
-      padding: 13px;
-      margin-top: 7px;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-
-    input, select {
-      border: 1px solid #cbd5e1;
-      background: white;
-    }
-
-    button {
-      border: none;
-      background: #185abd;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: 0.6;
-    }
-
-    .stop {
-      background: #475569;
-    }
-
-    #reader {
-      width: 100%;
-      margin-top: 15px;
-    }
-
-    #result {
-      padding: 15px;
-      margin-top: 16px;
-      border-radius: 10px;
-      background: #e2e8f0;
-      overflow-wrap: anywhere;
-      line-height: 1.7;
-    }
-
-    .valid {
-      background: #dcfce7 !important;
-      color: #166534;
-    }
-
-    .invalid {
-      background: #fee2e2 !important;
-      color: #991b1b;
-    }
-
-    .note {
-      color: #64748b;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    hr {
-      border: 0;
-      border-top: 1px solid #e2e8f0;
-      margin: 20px 0;
-    }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#f3f4f6; color:#111827; }
+    header { background:var(--navy); color:#fff; padding:18px 16px; text-align:center; }
+    header h1 { margin:0; font-size:1.35rem; letter-spacing:.2px; }
+    header p { margin:7px 0 0; color:#d1d5db; font-size:.92rem; }
+    main { width:min(720px, 100%); margin:0 auto; padding:16px; }
+    .card { background:#fff; border-radius:16px; padding:16px; margin-bottom:14px; box-shadow:0 3px 14px rgba(15,23,42,.08); }
+    label { display:block; font-weight:700; margin:0 0 7px; font-size:.95rem; }
+    select, input, button { width:100%; min-height:46px; font-size:1rem; border-radius:10px; }
+    select, input { border:1px solid #d1d5db; padding:10px 12px; background:#fff; color:#111827; }
+    .fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    button { border:0; padding:11px 14px; font-weight:700; cursor:pointer; }
+    .primary { background:var(--blue); color:#fff; }
+    .secondary { background:#e5e7eb; color:#111827; }
+    .danger { background:#fee2e2; color:#991b1b; }
+    #reader { width:100%; overflow:hidden; border-radius:12px; }
+    #reader video { object-fit:cover; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .status { border-radius:12px; padding:14px; margin-top:12px; background:#f3f4f6; border:1px solid #e5e7eb; }
+    .status h2 { font-size:1.15rem; margin:0 0 8px; }
+    .status p { margin:5px 0; overflow-wrap:anywhere; }
+    .match { background:#dcfce7; border-color:#86efac; color:#14532d; }
+    .nomatch { background:#fee2e2; border-color:#fca5a5; color:#7f1d1d; }
+    .pending { background:#fef3c7; border-color:#fcd34d; color:#78350f; }
+    .small { font-size:.83rem; color:#6b7280; line-height:1.45; }
+    .manual { margin-top:12px; }
+    .hidden { display:none !important; }
+    @media (max-width:440px) { .fields { grid-template-columns:1fr; } header h1 { font-size:1.2rem; } main { padding:12px; } .card { padding:13px; } }
   </style>
 </head>
-
 <body>
-  <div class="container">
+  <header>
+    <h1>Occlusion 2026</h1>
+    <p>QR Code Entry Verification</p>
+  </header>
 
-    <div class="header">
-      <h2>Occlusion 2026</h2>
-      <div>QR Entry Verification System</div>
-    </div>
-
-    <div class="card">
-
-      <label for="gate">Entry Gate</label>
-      <input id="gate" type="text" value="Main Gate"
-             placeholder="Enter gate name">
-
-      <label for="day">Event Day</label>
-      <select id="day">
-        <option value="1">Day 1</option>
-        <option value="2">Day 2</option>
-        <option value="3">Day 3</option>
-      </select>
-
-      <button id="startBtn" onclick="startScanner()">
-        Start QR Scanner
-      </button>
-
-      <button class="stop" onclick="stopScanner()">
-        Stop Scanner
-      </button>
-
-      <div id="reader"></div>
-
-      <p class="note">
-        Camera permission allow karein. QR code scan hone ke baad
-        attendee ka record verify hoga.
-      </p>
-
-      <hr>
-
-      <label for="manualId">Manual Unique ID</label>
-      <input id="manualId" type="text"
-             placeholder="Example: ITSOCC26001"
-             autocomplete="off">
-
-      <button onclick="submitManual()">Verify ID</button>
-
-      <div id="result" role="status" aria-live="polite">
-        Ready. Scanner start karein ya Unique ID enter karein.
+  <main>
+    <section class="card">
+      <div class="fields">
+        <div>
+          <label for="eventDay">Event Day</label>
+          <select id="eventDay">
+            <option value="1">Day 1</option>
+            <option value="2">Day 2</option>
+            <option value="3">Day 3</option>
+          </select>
+        </div>
+        <div>
+          <label for="gate">Entry Gate</label>
+          <select id="gate">
+            <option value="Main Gate">Main Gate</option>
+            <option value="Gate 1">Gate 1</option>
+            <option value="Gate 2">Gate 2</option>
+            <option value="Gate 3">Gate 3</option>
+            <option value="Gate 4">Gate 4</option>
+          </select>
+        </div>
       </div>
+    </section>
 
-    </div>
-  </div>
+    <section class="card">
+      <div id="reader"></div>
+      <div class="actions">
+        <button id="startBtn" class="primary" type="button">Start Back Camera</button>
+        <button id="stopBtn" class="secondary" type="button">Stop Camera</button>
+      </div>
+      <p class="small">Allow camera permission when prompted. Open this page using the HTTPS GitHub Pages URL on the phone. The scanner requests the rear camera.</p>
+      <div class="manual">
+        <label for="manualId">Manual ID Entry (backup)</label>
+        <input id="manualId" type="text" placeholder="e.g. ITSOCC26001" autocomplete="off" autocapitalize="characters">
+        <div class="actions">
+          <button id="submitIdBtn" class="secondary" type="button">Verify ID</button>
+          <button id="clearBtn" class="danger" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="result" class="status" role="status" aria-live="polite">
+        <h2>Ready to scan</h2>
+        <p>Select the event day and gate, then start the camera.</p>
+      </div>
+    </section>
+    <p class="small">If a QR scan returns an error, check the Apps Script deployment and the Guest / Entry Log tab names. Every scan attempt should appear in Entry Log.</p>
+  </main>
 
-  <script>
-    let scanner = null;
-    let scannerRunning = false;
-    let requestInProgress = false;
-    let lastScannedId = "";
+<script>
+  // Your deployed Google Apps Script web app URL:
+  const API_URL = "https://script.google.com/a/macros/its.edu.in/s/AKfycbwu4fHmYcVp1pGyQ2zE_tf1DhILt5eywEFN8KxWpCArsO19QbdsILrsdnGoT5BGqdqk/exec";
 
-    function showMessage(message, status) {
-      const box = document.getElementById("result");
-      box.className = "";
+  const resultBox = document.getElementById("result");
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const manualId = document.getElementById("manualId");
+  let scanner = null;
+  let cameraRunning = false;
+  let busy = false;
+  let lastScanned = "";
+  let lastScanAt = 0;
+  let callbackCounter = 0;
 
-      if (status === true) box.classList.add("valid");
-      if (status === false) box.classList.add("invalid");
+  function showResult(kind, heading, lines) {
+    resultBox.className = "status " + (kind || "");
+    resultBox.replaceChildren();
+    const h2 = document.createElement("h2");
+    h2.textContent = heading;
+    resultBox.appendChild(h2);
+    lines.forEach(line => {
+      const p = document.createElement("p");
+      p.textContent = line;
+      resultBox.appendChild(p);
+    });
+  }
 
-      box.textContent = message;
-    }
-
-    function startScanner() {
-      if (typeof Html5Qrcode === "undefined") {
-        showMessage(
-          "Scanner library load nahi hui. Internet connection check karein.",
-          false
-        );
-        return;
-      }
-
-      if (scannerRunning) {
-        showMessage("Scanner already running hai.", null);
-        return;
-      }
-
-      if (!scanner) {
-        scanner = new Html5Qrcode("reader");
-      }
-
-      showMessage("Camera start ho raha hai...", null);
-
-      scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
-        function(decodedText) {
-          if (requestInProgress) return;
-
-          const id = String(decodedText || "").trim();
-          if (!id) return;
-
-          lastScannedId = id;
-          verifyEntry(id);
-        },
-        function() {
-          // Normal scan-frame misses are ignored.
-        }
-      ).then(function() {
-        scannerRunning = true;
-        document.getElementById("startBtn").disabled = true;
-        showMessage("Camera ready. QR code scan karein.", null);
-      }).catch(function(error) {
-        scannerRunning = false;
-        showMessage(
-          "Camera start nahi hua: " + String(error) +
-          ". Chrome site settings mein Camera Allow karein.",
-          false
-        );
+  function jsonpScan(id, gate, day) {
+    return new Promise((resolve, reject) => {
+      const callback = "occlusionScanCallback" + (++callbackCounter);
+      let script;
+      let timeout;
+      const cleanup = () => {
+        if (script && script.parentNode) script.parentNode.removeChild(script);
+        try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+        if (timeout) clearTimeout(timeout);
+      };
+      window[callback] = data => { cleanup(); resolve(data); };
+      script = document.createElement("script");
+      script.onerror = () => { cleanup(); reject(new Error("Apps Script endpoint load nahi hua. URL/deployment access check karein.")); };
+      const params = new URLSearchParams({
+        action: "scan",
+        id: id,
+        gate: gate,
+        day: String(day),
+        callback: callback
       });
-    }
+      script.src = API_URL + (API_URL.includes("?") ? "&" : "?") + params.toString();
+      timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("Server response nahi aaya. Internet aur Apps Script deployment check karein."));
+      }, 15000);
+      document.body.appendChild(script);
+    });
+  }
 
-    async function stopScanner() {
-      if (scanner && scannerRunning) {
-        try {
-          await scanner.stop();
-        } catch (e) {
-          // Scanner may already have stopped.
-        }
+  async function verifyId(rawId) {
+    const id = String(rawId || "").trim().toUpperCase();
+    if (!id) {
+      showResult("nomatch", "ID required", ["QR code scan karein ya Guest ID enter karein."]);
+      return;
+    }
+    if (busy) return;
+    busy = true;
+    showResult("pending", "Checking entry…", ["ID: " + id, "Please wait."]);
+    try {
+      const data = await jsonpScan(id, document.getElementById("gate").value, document.getElementById("eventDay").value);
+      if (!data || data.error) {
+        showResult("nomatch", "SERVER ERROR", [data && data.error ? data.error : "Unexpected response from server."]);
+      } else if (data.ok) {
+        showResult("match", "MATCH — ENTRY ALLOWED", [
+          "Name: " + (data.name || "Name not available"),
+          "ID: " + (data.id || id),
+          "Gate: " + (data.gate || document.getElementById("gate").value),
+          "Time: " + (data.time || ""),
+          "Day: " + document.getElementById("eventDay").value
+        ]);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      } else {
+        showResult("nomatch", "NO MATCH — ENTRY NOT ALLOWED", [
+          "ID: " + (data.id || id),
+          "Gate: " + (data.gate || document.getElementById("gate").value),
+          "Time: " + (data.time || "")
+        ]);
+        if (navigator.vibrate) navigator.vibrate(300);
       }
-
-      scannerRunning = false;
-      document.getElementById("startBtn").disabled = false;
-      showMessage("Scanner stopped.", null);
+    } catch (error) {
+      showResult("nomatch", "CONNECTION ERROR", [String(error.message || error)]);
+    } finally {
+      busy = false;
+      manualId.value = "";
     }
+  }
 
-    function submitManual() {
-      const id = document.getElementById("manualId").value.trim();
-
-      if (!id) {
-        showMessage("Pehle Unique ID enter karein.", false);
-        return;
-      }
-
-      verifyEntry(id);
+  async function startCamera() {
+    if (cameraRunning) return;
+    if (!window.Html5Qrcode) {
+      showResult("nomatch", "SCANNER LIBRARY ERROR", ["QR scanner library load nahi hui. Internet check karke page reload karein."]);
+      return;
     }
-
-    function verifyEntry(id) {
-      if (requestInProgress) return;
-
-      requestInProgress = true;
-      showMessage("Checking ID: " + id + "...", null);
-
-      const gate =
-        document.getElementById("gate").value.trim() || "Main Gate";
-      const day = document.getElementById("day").value;
-
-      google.script.run
-        .withSuccessHandler(function(data) {
-          requestInProgress = false;
-
-          const box = document.getElementById("result");
-          box.className = data.ok ? "valid" : "invalid";
-
-          box.replaceChildren();
-
-          const heading = document.createElement("strong");
-          heading.textContent = data.result;
-          box.appendChild(heading);
-
-          [
-            ["Unique ID", data.id],
-            ["Name", data.name || "Not found"],
-            ["Gate", data.gate],
-            ["Time", data.time]
-          ].forEach(function(item) {
-            const line = document.createElement("div");
-            line.textContent = item[0] + ": " + item[1];
-            box.appendChild(line);
-          });
-
-          document.getElementById("manualId").value = "";
-
-          // Scanner remains active for the next attendee.
-          // Every successful server request is logged separately.
-        })
-        .withFailureHandler(function(error) {
-          requestInProgress = false;
-          showMessage(
-            "Server error: " +
-            (error && error.message ? error.message : error),
-            false
-          );
-        })
-        .scanEntry(id, gate, day);
+    try {
+      scanner = scanner || new Html5Qrcode("reader");
+      startBtn.disabled = true;
+      showResult("pending", "Starting camera…", ["Browser permission allow karein."]);
+      await scanner.start(
+        { facingMode: { ideal: "environment" } },
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        decodedText => {
+          const now = Date.now();
+          if (busy || (decodedText === lastScanned && now - lastScanAt < 2500)) return;
+          lastScanned = decodedText;
+          lastScanAt = now;
+          verifyId(decodedText);
+        },
+        () => {}
+      );
+      cameraRunning = true;
+      showResult("", "Camera ready", ["QR code ko frame ke andar rakhein."]);
+    } catch (error) {
+      showResult("nomatch", "CAMERA ERROR", [
+        String(error && error.message ? error.message : error),
+        "Phone settings mein browser camera permission allow karein; HTTPS page use karein."
+      ]);
+    } finally {
+      startBtn.disabled = false;
     }
-  </script>
+  }
+
+  async function stopCamera() {
+    if (!scanner || !cameraRunning) return;
+    try {
+      await scanner.stop();
+      await scanner.clear();
+    } catch (_) {}
+    cameraRunning = false;
+    scanner = null;
+    showResult("", "Camera stopped", ["Start Back Camera par tap karke dobara shuru karein."]);
+  }
+
+  startBtn.addEventListener("click", startCamera);
+  stopBtn.addEventListener("click", stopCamera);
+  document.getElementById("submitIdBtn").addEventListener("click", () => verifyId(manualId.value));
+  manualId.addEventListener("keydown", event => {
+    if (event.key === "Enter") verifyId(manualId.value);
+  });
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    manualId.value = "";
+    showResult("", "Ready to scan", ["Select the event day and gate, then scan a QR code."]);
+  });
+</script>
 </body>
 </html>
