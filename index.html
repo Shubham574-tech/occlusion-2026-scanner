@@ -4,215 +4,124 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<title>ITS Dental College – Occlusion 26 Entry Scanner</title>
+<title>ITS Dental College - Occlusion 26</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;width:100%;height:100%;font-family:Arial,Helvetica,sans-serif;background:#f1f5f9;color:#111827}
-  body{min-height:100dvh}
-  header{background:#111827;color:#fff;text-align:center;padding:12px 10px}
-  header h1{font-size:clamp(19px,5vw,25px);line-height:1.2;margin:0}
-  header p{margin:4px 0 0;color:#d1d5db;font-size:13px}
-  main{width:100%;max-width:700px;margin:0 auto;padding:10px;display:flex;flex-direction:column;gap:9px}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  label{display:block;font-weight:700;font-size:13px;margin-bottom:5px}
-  select,input,button{font:inherit;border-radius:9px}
-  select,input{width:100%;min-height:42px;border:1px solid #cbd5e1;background:#fff;padding:9px;font-size:15px}
-  .scanner-card,.status-card{background:#fff;border-radius:12px;padding:10px;box-shadow:0 2px 8px #00000012}
-  #reader{width:100%;height:auto;max-height:44dvh;overflow:hidden;border-radius:9px;background:#0b1220}
-  #reader video{width:100%!important;max-height:44dvh!important;object-fit:cover}
-  #reader__scan_region{min-height:0!important}
-  #reader__dashboard{display:none!important}
-  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-  button{border:0;min-height:43px;padding:10px;font-weight:700;cursor:pointer}
-  #startBtn{background:#1d4ed8;color:white}
-  #stopBtn{background:#e5e7eb;color:#111827}
-  #verifyBtn{background:#15803d;color:#fff}
-  .manual{display:grid;grid-template-columns:1fr 105px;gap:8px;margin-top:8px}
-  .manual label{grid-column:1/-1;margin-bottom:-2px}
-  .status-card{min-height:90px;text-align:center;border:2px solid #e5e7eb}
-  .status-card h2{font-size:clamp(19px,5vw,25px);margin:4px 0 8px}
-  .status-card p{margin:4px 0;overflow-wrap:anywhere;font-size:15px}
-  .neutral{background:#fff;color:#111827}
-  .good{background:#dcfce7;border-color:#22c55e;color:#14532d}
-  .bad{background:#fee2e2;border-color:#ef4444;color:#7f1d1d}
-  .warn{background:#fef3c7;border-color:#f59e0b;color:#78350f}
-  .hint{font-size:11px;color:#64748b;text-align:center;margin:0 0 4px}
-  #entryPopup{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:#000b}
-  #entryPopup.hidden{display:none}
-  .popup-card{width:100%;max-width:520px;min-height:230px;border-radius:22px;padding:28px 18px;text-align:center;box-shadow:0 15px 50px #0006;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .popup-card h2{font-size:clamp(29px,8vw,43px);line-height:1.05;margin:0 0 18px}
-  .popup-card p{font-size:clamp(17px,4.5vw,22px);font-weight:700;margin:5px 0;overflow-wrap:anywhere}
-  .popup-allowed{background:#dcfce7;color:#14532d}
-  .popup-duplicate{background:#fef3c7;color:#78350f}
-  .popup-denied{background:#fee2e2;color:#7f1d1d}
-  .popup-error{background:#e0e7ff;color:#1e3a8a}
-  @media(min-width:600px){main{padding:16px}.scanner-card,.status-card{padding:14px}#reader,#reader video{max-height:48dvh!important}}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#111827}
+header{background:#111827;color:white;text-align:center;padding:12px 8px}header h1{font-size:22px;margin:0}header p{font-size:13px;margin:5px 0 0;color:#d1d5db}
+main{max-width:650px;margin:auto;padding:10px}.controls,.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{background:white;padding:10px;border-radius:12px;margin-bottom:10px;box-shadow:0 2px 8px #0001}
+label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px}select,input,button{width:100%;min-height:43px;padding:10px;border-radius:8px;font-size:15px}
+select,input{border:1px solid #cbd5e1;background:white}button{border:0;font-weight:bold;cursor:pointer}
+#startBtn{background:#1d4ed8;color:white}#stopBtn{background:#e5e7eb}#verifyBtn{background:#15803d;color:white}
+#reader{width:100%;max-height:43dvh;overflow:hidden;background:#111827;border-radius:8px}#reader video{width:100%!important;max-height:43dvh!important;object-fit:cover}#reader__dashboard{display:none!important}
+.buttons{margin-top:8px}.manual{display:grid;grid-template-columns:1fr 95px;gap:8px;margin-top:10px}.manual label{grid-column:1/-1}
+.status{text-align:center;border:2px solid #e5e7eb;border-radius:12px;padding:12px;background:white;overflow-wrap:anywhere}.status h2{font-size:23px;margin:4px 0 8px}.status p{margin:5px 0}
+.good{background:#dcfce7;color:#14532d;border-color:#22c55e}.bad{background:#fee2e2;color:#7f1d1d;border-color:#ef4444}.warn{background:#fef3c7;color:#78350f;border-color:#f59e0b}
+#popup{position:fixed;inset:0;z-index:99999;background:#000b;display:flex;align-items:center;justify-content:center;padding:18px}#popup.hidden{display:none}
+.popupCard{width:100%;max-width:500px;min-height:220px;border-radius:22px;padding:25px 16px;text-align:center;display:flex;flex-direction:column;justify-content:center;overflow-wrap:anywhere}
+.popupCard h2{font-size:clamp(30px,8vw,43px);margin:0 0 18px}.popupCard p{font-size:20px;font-weight:bold;margin:5px}
+.popupAllowed{background:#dcfce7;color:#14532d}.popupDuplicate{background:#fef3c7;color:#78350f}.popupDenied{background:#fee2e2;color:#7f1d1d}.popupError{background:#e0e7ff;color:#1e3a8a}
+.note{text-align:center;font-size:11px;color:#64748b}
 </style>
 </head>
 <body>
-<header>
-  <h1>ITS Dental College – Occlusion 26</h1>
-  <p>QR Entry Verification</p>
-</header>
+<header><h1>ITS Dental College - Occlusion 26</h1><p id="dateLabel">Checking event date...</p></header>
 <main>
-  <section class="controls">
-    <div>
-      <label for="eventDay">Event Day</label>
-      <select id="eventDay"><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option></select>
-    </div>
-    <div>
-      <label for="gate">Entry Gate</label>
-      <select id="gate"><option value="Main Gate">Main Gate</option><option value="Gate 1">Gate 1</option><option value="Gate 2">Gate 2</option><option value="Gate 3">Gate 3</option><option value="Gate 4">Gate 4</option></select>
-    </div>
-  </section>
-
-  <section class="scanner-card">
-    <div id="reader"></div>
-    <div class="buttons">
-      <button id="startBtn" type="button">Start Back Camera</button>
-      <button id="stopBtn" type="button">Stop Camera</button>
-    </div>
-    <div class="manual">
-      <label for="manualId">Manual ID backup</label>
-      <input id="manualId" placeholder="Enter guest ID" autocomplete="off" autocapitalize="characters">
-      <button id="verifyBtn" type="button">Verify</button>
-    </div>
-  </section>
-
-  <section id="result" class="status-card neutral" aria-live="polite">
-    <h2>READY TO SCAN</h2><p>Select day and gate, then start camera.</p>
-  </section>
-  <p class="hint">After each result, the scanner will be ready for the next guest.</p>
+<section class="controls card">
+  <div><label for="eventDay">Event Day (automatic)</label><select id="eventDay" disabled>
+    <option value="">Not active</option><option value="1">Day 1</option><option value="2">Day 2</option><option value="3">Day 3</option>
+  </select></div>
+  <div><label for="gate">Entry Gate</label><select id="gate">
+    <option>Main Gate</option><option>Gate 1</option><option>Gate 2</option><option>Gate 3</option><option>Gate 4</option>
+  </select></div>
+</section>
+<section class="card">
+  <div id="reader"></div>
+  <div class="buttons"><button id="startBtn">Start Back Camera</button><button id="stopBtn">Stop Camera</button></div>
+  <div class="manual"><label for="manualId">Manual ID backup</label><input id="manualId" placeholder="Enter guest ID" autocomplete="off"><button id="verifyBtn">Verify</button></div>
+</section>
+<section id="status" class="status"><h2>READY TO SCAN</h2><p>Event date is being checked.</p></section>
+<p class="note">Result popup closes automatically after 1.6 seconds.</p>
 </main>
-
-<div id="entryPopup" class="hidden" role="alertdialog" aria-live="assertive">
-  <div id="popupCard" class="popup-card popup-allowed">
-    <h2 id="popupTitle">ENTRY ALLOWED</h2>
-    <p id="popupName"></p>
-    <p id="popupId"></p>
-  </div>
-</div>
-
+<div id="popup" class="hidden" role="alertdialog" aria-live="assertive"><div id="popupCard" class="popupCard popupAllowed"><h2 id="popupTitle">ENTRY ALLOWED</h2><p id="popupName"></p><p id="popupId"></p></div></div>
 <script>
-  const API_URL = "https://script.google.com/a/macros/its.edu.in/s/AKfycbwu4fHmYcVp1pGyQ2zE_tf1DhILt5eywEFN8KxWpCArsO19QbdsILrsdnGoT5BGqdqk/exec";
-  const resultBox = document.getElementById("result");
-  const popup = document.getElementById("entryPopup");
-  let scanner = null, cameraRunning = false, busy = false, callbackCounter = 0;
-  let lastScannedId = "", lastScannedAt = 0, popupTimer = null;
+const API_URL = "https://script.google.com/a/macros/its.edu.in/s/AKfycbwu4fHmYcVp1pGyQ2zE_tf1DhILt5eywEFN8KxWpCArsO19QbdsILrsdnGoT5BGqdqk/exec";
+// Keep this schedule identical to Code.gs.
+const EVENT_DAYS = {"2026-10-26":1,"2026-10-27":1,"2026-10-28":1,"2026-10-29":1,"2026-10-30":2,"2026-10-31":3};
+let scanner=null,cameraRunning=false,busy=false,callbackCounter=0,lastId="",lastScanAt=0,popupTimer=null;
 
-  function setStatus(kind, heading, lines) {
-    resultBox.className = "status-card " + (kind || "neutral");
-    resultBox.replaceChildren();
-    const h = document.createElement("h2"); h.textContent = heading; resultBox.appendChild(h);
-    lines.forEach(line => { const p = document.createElement("p"); p.textContent = line; resultBox.appendChild(p); });
-  }
-
-  function showPopup(kind, title, name, id) {
-    if (popupTimer) clearTimeout(popupTimer);
-    const card = document.getElementById("popupCard");
-    card.className = "popup-card " + kind;
-    document.getElementById("popupTitle").textContent = title;
-    document.getElementById("popupName").textContent = name ? "Name: " + name : "";
-    document.getElementById("popupId").textContent = id ? "ID: " + id : "";
-    popup.classList.remove("hidden");
-    if (navigator.vibrate) navigator.vibrate(kind === "popup-allowed" ? 120 : [220,80,220]);
-    popupTimer = setTimeout(() => popup.classList.add("hidden"), 1600);
-  }
-
-  function jsonpScan(id, gate, day) {
-    return new Promise((resolve, reject) => {
-      const callback = "occlusionCallback" + (++callbackCounter);
-      const script = document.createElement("script");
-      let settled = false, timer;
-      function cleanup() {
-        if (script.parentNode) script.parentNode.removeChild(script);
-        try { delete window[callback]; } catch (_) { window[callback] = undefined; }
-        clearTimeout(timer);
-      }
-      function finish(fn, value) {
-        if (settled) return;
-        settled = true; cleanup(); fn(value);
-      }
-      window[callback] = data => finish(resolve, data);
-      script.onerror = () => finish(reject, new Error("Apps Script load nahi hua. Deployment URL/access check karein."));
-      const params = new URLSearchParams({action:"scan", id, gate, day:String(day), callback});
-      script.src = API_URL + (API_URL.includes("?") ? "&" : "?") + params.toString();
-      timer = setTimeout(() => finish(reject, new Error("Server response nahi aaya. Internet/deployment check karein.")), 15000);
-      document.body.appendChild(script);
-    });
-  }
-
-  async function verifyId(rawId) {
-    const id = String(rawId || "").trim().toUpperCase();
-    if (!id) { setStatus("bad", "ID REQUIRED", ["Scan QR or enter a guest ID."]); return; }
-    if (busy) return;
-    busy = true;
-    setStatus("warn", "CHECKING ENTRY…", ["ID: " + id]);
-    try {
-      const gate = document.getElementById("gate").value;
-      const day = document.getElementById("eventDay").value;
-      const data = await jsonpScan(id, gate, day);
-      if (!data || data.error) {
-        setStatus("bad", "SERVER ERROR", [data && data.error ? data.error : "Unexpected server response."]);
-        showPopup("popup-error", "SERVER ERROR", "", id);
-      } else if (data.duplicate) {
-        setStatus("warn", "DUPLICATE ENTRY", ["Name: " + (data.name || ""), "ID: " + (data.id || id), "Already checked in for Day " + day]);
-        showPopup("popup-duplicate", "DUPLICATE ENTRY", data.name, data.id || id);
-      } else if (data.ok) {
-        setStatus("good", "ENTRY ALLOWED", ["Name: " + (data.name || ""), "ID: " + (data.id || id), "Gate: " + (data.gate || gate), "Time: " + (data.time || "")]);
-        showPopup("popup-allowed", "ENTRY ALLOWED", data.name, data.id || id);
-      } else {
-        setStatus("bad", "ENTRY NOT ALLOWED", ["Guest ID not found.", "ID: " + (data.id || id)]);
-        showPopup("popup-denied", "ENTRY NOT ALLOWED", data.name, data.id || id);
-      }
-    } catch (err) {
-      setStatus("bad", "CONNECTION ERROR", [String(err.message || err)]);
-      showPopup("popup-error", "CONNECTION ERROR", "", id);
-    } finally {
-      busy = false;
-      document.getElementById("manualId").value = "";
-    }
-  }
-
-  async function startCamera() {
-    if (cameraRunning) return;
-    if (!window.Html5Qrcode) { setStatus("bad", "SCANNER LIBRARY ERROR", ["Internet check karein aur page reload karein."]); return; }
-    try {
-      document.getElementById("startBtn").disabled = true;
-      scanner = scanner || new Html5Qrcode("reader");
-      setStatus("warn", "STARTING CAMERA…", ["Allow camera permission if prompted."]);
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 230, height: 230 } },
-        decodedText => {
-          const now = Date.now();
-          if (busy || (decodedText === lastScannedId && now - lastScannedAt < 1200)) return;
-          lastScannedId = decodedText; lastScannedAt = now;
-          verifyId(decodedText);
-        },
-        () => {}
-      );
-      cameraRunning = true;
-      setStatus("", "CAMERA READY", ["Scan the next guest QR code."]);
-      document.getElementById("reader").scrollIntoView({block:"nearest", behavior:"smooth"});
-    } catch (err) {
-      setStatus("bad", "CAMERA ERROR", [String(err.message || err), "Use HTTPS and allow camera permission."]);
-    } finally {
-      document.getElementById("startBtn").disabled = false;
-    }
-  }
-
-  async function stopCamera() {
-    try { if (scanner && cameraRunning) { await scanner.stop(); await scanner.clear(); } } catch (_) {}
-    cameraRunning = false; scanner = null;
-    setStatus("", "CAMERA STOPPED", ["Tap Start Back Camera to resume."]);
-  }
-
-  document.getElementById("startBtn").addEventListener("click", startCamera);
-  document.getElementById("stopBtn").addEventListener("click", stopCamera);
-  document.getElementById("verifyBtn").addEventListener("click", () => verifyId(document.getElementById("manualId").value));
-  document.getElementById("manualId").addEventListener("keydown", e => { if (e.key === "Enter") verifyId(e.target.value); });
+function indiaDateKey(){
+ const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+ const v={};parts.forEach(p=>v[p.type]=p.value);return v.year+"-"+v.month+"-"+v.day;
+}
+function activeDay(){return EVENT_DAYS[indiaDateKey()]||0}
+function setStatus(type,title,lines){
+ const box=document.getElementById("status");box.className="status "+(type||"");box.replaceChildren();
+ const h=document.createElement("h2");h.textContent=title;box.appendChild(h);
+ lines.forEach(line=>{const p=document.createElement("p");p.textContent=line;box.appendChild(p)});
+}
+function initializeDate(){
+ const date=indiaDateKey(),day=activeDay(),select=document.getElementById("eventDay");
+ if(!day){select.value="";document.getElementById("dateLabel").textContent="Event not active - "+date+" (IST)";
+ document.getElementById("startBtn").disabled=true;document.getElementById("verifyBtn").disabled=true;
+ setStatus("bad","EVENT NOT ACTIVE",["Scanner active only on 26-31 October 2026."]);return}
+ select.value=String(day);document.getElementById("dateLabel").textContent=date+" - Day "+day+" (India time)";
+ setStatus("","READY TO SCAN",["Day "+day+" selected automatically."]);
+}
+function showPopup(type,title,name,id){
+ clearTimeout(popupTimer);document.getElementById("popupCard").className="popupCard "+type;
+ document.getElementById("popupTitle").textContent=title;document.getElementById("popupName").textContent=name?"Name: "+name:"";
+ document.getElementById("popupId").textContent=id?"ID: "+id:"";document.getElementById("popup").classList.remove("hidden");
+ if(navigator.vibrate)navigator.vibrate(type==="popupAllowed"?120:[220,80,220]);
+ popupTimer=setTimeout(()=>document.getElementById("popup").classList.add("hidden"),1600);
+}
+function jsonpScan(id,gate,day){
+ return new Promise((resolve,reject)=>{
+  const callback="occlusionCallback"+(++callbackCounter),script=document.createElement("script");let finished=false,timer;
+  function cleanup(){script.remove();try{delete window[callback]}catch(e){}clearTimeout(timer)}
+  function finish(fn,value){if(finished)return;finished=true;cleanup();fn(value)}
+  window[callback]=data=>finish(resolve,data);
+  script.onerror=()=>finish(reject,new Error("Apps Script load nahi hua. Deployment access check karein."));
+  script.src=API_URL+"?"+new URLSearchParams({action:"scan",id:id,gate:gate,day:String(day),callback:callback});
+  timer=setTimeout(()=>finish(reject,new Error("Server response nahi aaya. Internet/deployment check karein.")),15000);
+  document.body.appendChild(script);
+ });
+}
+async function verifyId(rawId){
+ const id=String(rawId||"").trim().toUpperCase();if(!id){setStatus("bad","ID REQUIRED",["Scan QR or enter guest ID."]);return}
+ if(busy)return;const day=activeDay();if(!day){setStatus("bad","EVENT NOT ACTIVE",["Scanning is unavailable today."]);return}
+ busy=true;setStatus("warn","CHECKING ENTRY...",["ID: "+id]);
+ try{
+  const gate=document.getElementById("gate").value,data=await jsonpScan(id,gate,day);
+  if(!data||data.error){setStatus("bad","SERVER ERROR",[data&&data.error?data.error:"Unexpected response."]);showPopup("popupError","SERVER ERROR","",id)}
+  else if(data.duplicate){setStatus("warn","DUPLICATE ENTRY",["Name: "+(data.name||""),"ID: "+(data.id||id),"Already checked in for Day "+day]);showPopup("popupDuplicate","DUPLICATE ENTRY",data.name,data.id||id)}
+  else if(data.ok){setStatus("good","ENTRY ALLOWED",["Name: "+(data.name||""),"ID: "+(data.id||id),"Gate: "+(data.gate||gate),"Time: "+(data.time||"")]);showPopup("popupAllowed","ENTRY ALLOWED",data.name,data.id||id)}
+  else{setStatus("bad","ENTRY NOT ALLOWED",["Guest ID not found.","ID: "+(data.id||id)]);showPopup("popupDenied","ENTRY NOT ALLOWED",data.name,data.id||id)}
+ }catch(err){setStatus("bad","CONNECTION ERROR",[String(err.message||err)]);showPopup("popupError","CONNECTION ERROR","",id)}
+ finally{busy=false;document.getElementById("manualId").value=""}
+}
+async function startCamera(){
+ if(cameraRunning)return;if(!activeDay()){setStatus("bad","EVENT NOT ACTIVE",["Scanning is unavailable today."]);return}
+ if(!window.Html5Qrcode){setStatus("bad","SCANNER LIBRARY ERROR",["Check internet and reload."]);return}
+ try{
+  document.getElementById("startBtn").disabled=true;scanner=scanner||new Html5Qrcode("reader");setStatus("warn","STARTING CAMERA...",["Allow camera permission."]);
+  await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},decodedText=>{
+   const now=Date.now();if(busy||(decodedText===lastId&&now-lastScanAt<1200))return;lastId=decodedText;lastScanAt=now;verifyId(decodedText)
+  },()=>{});
+  cameraRunning=true;setStatus("","CAMERA READY",["Scan the next guest QR code."]);document.getElementById("reader").scrollIntoView({block:"nearest",behavior:"smooth"});
+ }catch(err){setStatus("bad","CAMERA ERROR",[String(err.message||err)])}
+ finally{document.getElementById("startBtn").disabled=false}
+}
+async function stopCamera(){
+ try{if(scanner&&cameraRunning){await scanner.stop();await scanner.clear()}}catch(e){}
+ cameraRunning=false;scanner=null;setStatus("","CAMERA STOPPED",["Tap Start Back Camera to resume."]);
+}
+document.getElementById("startBtn").addEventListener("click",startCamera);
+document.getElementById("stopBtn").addEventListener("click",stopCamera);
+document.getElementById("verifyBtn").addEventListener("click",()=>verifyId(document.getElementById("manualId").value));
+document.getElementById("manualId").addEventListener("keydown",e=>{if(e.key==="Enter")verifyId(e.target.value)});
+initializeDate();
 </script>
 </body>
 </html>
