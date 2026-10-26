@@ -42,14 +42,14 @@ select,input{border:1px solid #cbd5e1;background:white}button{border:0;font-weig
   <div class="manual"><label for="manualId">Manual ID backup</label><input id="manualId" placeholder="Enter guest ID" autocomplete="off"><button id="verifyBtn">Verify</button></div>
 </section>
 <section id="status" class="status"><h2>READY TO SCAN</h2><p>Event date is being checked.</p></section>
-<p class="note">Result popup closes automatically after 1.6 seconds.</p>
+<p class="note">Popup closes automatically; scanner is then ready for the next guest.</p>
 </main>
 <div id="popup" class="hidden" role="alertdialog" aria-live="assertive"><div id="popupCard" class="popupCard popupAllowed"><h2 id="popupTitle">ENTRY ALLOWED</h2><p id="popupName"></p><p id="popupId"></p></div></div>
 <script>
 const API_URL = "https://script.google.com/a/macros/its.edu.in/s/AKfycbwu4fHmYcVp1pGyQ2zE_tf1DhILt5eywEFN8KxWpCArsO19QbdsILrsdnGoT5BGqdqk/exec";
 // Keep this schedule identical to Code.gs.
 const EVENT_DAYS = {"2026-10-26":1,"2026-10-27":1,"2026-10-28":1,"2026-10-29":1,"2026-10-30":2,"2026-10-31":3};
-let scanner=null,cameraRunning=false,busy=false,callbackCounter=0,lastId="",lastScanAt=0,popupTimer=null;
+let scanner=null,cameraRunning=false,busy=false,popupActive=false,callbackCounter=0,lastId="",lastScanAt=0,popupTimer=null;
 
 function indiaDateKey(){
  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
@@ -72,9 +72,9 @@ function initializeDate(){
 function showPopup(type,title,name,id){
  clearTimeout(popupTimer);document.getElementById("popupCard").className="popupCard "+type;
  document.getElementById("popupTitle").textContent=title;document.getElementById("popupName").textContent=name?"Name: "+name:"";
- document.getElementById("popupId").textContent=id?"ID: "+id:"";document.getElementById("popup").classList.remove("hidden");
+ document.getElementById("popupId").textContent=id?"ID: "+id:"";document.getElementById("popup").classList.remove("hidden");popupActive=true;
  if(navigator.vibrate)navigator.vibrate(type==="popupAllowed"?120:[220,80,220]);
- popupTimer=setTimeout(()=>document.getElementById("popup").classList.add("hidden"),1600);
+ popupTimer=setTimeout(()=>{document.getElementById("popup").classList.add("hidden");popupActive=false;if(cameraRunning&&!busy)setStatus("","CAMERA READY",["Ready for next guest QR scan."]);},1100);
 }
 function jsonpScan(id,gate,day){
  return new Promise((resolve,reject)=>{
@@ -106,8 +106,8 @@ async function startCamera(){
  if(!window.Html5Qrcode){setStatus("bad","SCANNER LIBRARY ERROR",["Check internet and reload."]);return}
  try{
   document.getElementById("startBtn").disabled=true;scanner=scanner||new Html5Qrcode("reader");setStatus("warn","STARTING CAMERA...",["Allow camera permission."]);
-  await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},decodedText=>{
-   const now=Date.now();if(busy||(decodedText===lastId&&now-lastScanAt<1200))return;lastId=decodedText;lastScanAt=now;verifyId(decodedText)
+  await scanner.start({facingMode:"environment"},{fps:15,qrbox:{width:250,height:250}},decodedText=>{
+   const now=Date.now();if(busy||popupActive||(decodedText===lastId&&now-lastScanAt<900))return;lastId=decodedText;lastScanAt=now;verifyId(decodedText)
   },()=>{});
   cameraRunning=true;setStatus("","CAMERA READY",["Scan the next guest QR code."]);document.getElementById("reader").scrollIntoView({block:"nearest",behavior:"smooth"});
  }catch(err){setStatus("bad","CAMERA ERROR",[String(err.message||err)])}
