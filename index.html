@@ -13,11 +13,13 @@ main{max-width:650px;margin:auto;padding:10px}.controls,.buttons{display:grid;gr
 .card{background:white;padding:10px;border-radius:12px;margin-bottom:10px;box-shadow:0 2px 8px #0001}
 label{display:block;font-size:13px;font-weight:bold;margin-bottom:5px}select,input,button{width:100%;min-height:43px;padding:10px;border-radius:8px;font-size:15px}
 select,input{border:1px solid #cbd5e1;background:white}button{border:0;font-weight:bold;cursor:pointer}
-#startBtn{background:#1d4ed8;color:white}#stopBtn{background:#e5e7eb}#verifyBtn{background:#15803d;color:white}
+#startBtn{background:#1d4ed8;color:white}#stopBtn{background:#e5e7eb}#verifyBtn{background:#15803d;color:white}#reloadBtn{background:#e5e7eb}#exportBtn{background:#0f766e;color:white}
 #reader{width:100%;max-height:43dvh;overflow:hidden;background:#111827;border-radius:8px}#reader video{width:100%!important;max-height:43dvh!important;object-fit:cover}#reader__dashboard{display:none!important}
 .buttons{margin-top:8px}.manual{display:grid;grid-template-columns:1fr 95px;gap:8px;margin-top:10px}.manual label{grid-column:1/-1}
 .status{text-align:center;border:2px solid #e5e7eb;border-radius:12px;padding:12px;background:white;overflow-wrap:anywhere}.status h2{font-size:23px;margin:4px 0 8px}.status p{margin:5px 0}
 .good{background:#dcfce7;color:#14532d;border-color:#22c55e}.bad{background:#fee2e2;color:#7f1d1d;border-color:#ef4444}.warn{background:#fef3c7;color:#78350f;border-color:#f59e0b}
+.sync{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}.sync div{background:#f8fafc;border-radius:8px;padding:6px 2px}.sync b{display:block;font-size:18px}.sync span{font-size:11px;color:#64748b}
+#syncNote{text-align:center;font-size:12px;margin:8px 0 0;color:#64748b;overflow-wrap:anywhere}#syncNote.err{color:#b91c1c;font-weight:bold}
 #popup{position:fixed;inset:0;z-index:99999;background:#000b;display:flex;align-items:center;justify-content:center;padding:18px}#popup.hidden{display:none}
 .popupCard{width:100%;max-width:500px;min-height:220px;border-radius:22px;padding:25px 16px;text-align:center;display:flex;flex-direction:column;justify-content:center;overflow-wrap:anywhere}
 .popupCard h2{font-size:clamp(30px,8vw,43px);margin:0 0 18px}.popupCard p{font-size:20px;font-weight:bold;margin:5px}
@@ -42,20 +44,41 @@ select,input{border:1px solid #cbd5e1;background:white}button{border:0;font-weig
   <div class="manual"><label for="manualId">Manual ID backup</label><input id="manualId" placeholder="Enter guest ID" autocomplete="off"><button id="verifyBtn">Verify</button></div>
 </section>
 <section id="status" class="status"><h2>READY TO SCAN</h2><p>Event date is being checked.</p></section>
-<p class="note">Popup closes automatically; scanner is then ready for the next guest.</p>
+<section class="card" style="margin-top:10px">
+  <div class="sync">
+    <div><b id="statGuests">0</b><span>Guests</span></div>
+    <div><b id="statDone">0</b><span>Checked in</span></div>
+    <div><b id="statMine">0</b><span>This phone</span></div>
+    <div><b id="statPending">0</b><span>Pending sync</span></div>
+  </div>
+  <p id="syncNote">Not synced yet.</p>
+  <div class="buttons"><button id="reloadBtn">Reload Data</button><button id="exportBtn">Export CSV</button></div>
+</section>
+<p class="note">Result is shown instantly from the guest list on this phone. Entries sync to Google Sheet in the background - keep this tab open.</p>
 </main>
 <div id="popup" class="hidden" role="alertdialog" aria-live="assertive"><div id="popupCard" class="popupCard popupAllowed"><h2 id="popupTitle">ENTRY ALLOWED</h2><p id="popupName"></p><p id="popupId"></p></div></div>
 <script>
 const API_URL = "https://script.google.com/a/macros/its.edu.in/s/AKfycbwu4fHmYcVp1pGyQ2zE_tf1DhILt5eywEFN8KxWpCArsO19QbdsILrsdnGoT5BGqdqk/exec";
 // Keep this schedule identical to Code.gs.
 const EVENT_DAYS = {"2026-10-26":1,"2026-10-27":1,"2026-10-28":1,"2026-10-29":1,"2026-10-30":2,"2026-10-31":3};
-let scanner=null,cameraRunning=false,busy=false,popupActive=false,callbackCounter=0,lastId="",lastScanAt=0,popupTimer=null;
+const POLL_MS = 5000, BATCH_SIZE = 10, SAME_ID_IGNORE_MS = 4000;
+const LS_GUESTS = "occ26_guests_v2", LS_QUEUE = "occ26_queue_v2", LS_HISTORY = "occ26_history_v2", LS_GATE = "occ26_gate";
+let scanner=null,cameraRunning=false,popupActive=false,callbackCounter=0,lastId="",lastScanAt=0,popupTimer=null,wakeLock=null;
+// guests: id -> name. serverDone: id -> first entry time (from Sheet). localDone: allowed on this phone, not yet seen in a Sheet poll.
+let guests=new Map(),serverDone=new Map(),localDone=new Map(),loadedDay=0,dataReady=false;
+let queue=loadJson(LS_QUEUE,[]),history=loadJson(LS_HISTORY,[]);
+let flushing=false,flushTimer=null,polling=false,lastSyncAt=0,syncError="";
 
-function indiaDateKey(){
- const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+function loadJson(key,fallback){try{const v=JSON.parse(localStorage.getItem(key));return v==null?fallback:v}catch(e){return fallback}}
+function saveJson(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}}
+function indiaDateKey(ts){
+ const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(ts?new Date(ts):new Date());
  const v={};parts.forEach(p=>v[p.type]=p.value);return v.year+"-"+v.month+"-"+v.day;
 }
+function indiaTime(ts){return new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(ts?new Date(ts):new Date()).toUpperCase()}
 function activeDay(){return EVENT_DAYS[indiaDateKey()]||0}
+function isDone(id){return localDone.has(id)||serverDone.has(id)}
+function doneTime(id){return localDone.get(id)||serverDone.get(id)||""}
 function setStatus(type,title,lines){
  const box=document.getElementById("status");box.className="status "+(type||"");box.replaceChildren();
  const h=document.createElement("h2");h.textContent=title;box.appendChild(h);
@@ -65,63 +88,207 @@ function initializeDate(){
  const date=indiaDateKey(),day=activeDay(),select=document.getElementById("eventDay");
  if(!day){select.value="";document.getElementById("dateLabel").textContent="Event not active - "+date+" (IST)";
  document.getElementById("startBtn").disabled=true;document.getElementById("verifyBtn").disabled=true;
- setStatus("bad","EVENT NOT ACTIVE",["Scanner active only on 26-31 October 2026."]);return}
+ setStatus("bad","EVENT NOT ACTIVE",["Scanner active only on 26-31 October 2026."]);return false}
  select.value=String(day);document.getElementById("dateLabel").textContent=date+" - Day "+day+" (India time)";
- setStatus("","READY TO SCAN",["Day "+day+" selected automatically."]);
+ document.getElementById("startBtn").disabled=false;document.getElementById("verifyBtn").disabled=false;
+ return true;
 }
-function showPopup(type,title,name,id){
+function showPopup(type,title,name,id,extra){
  clearTimeout(popupTimer);document.getElementById("popupCard").className="popupCard "+type;
  document.getElementById("popupTitle").textContent=title;document.getElementById("popupName").textContent=name?"Name: "+name:"";
- document.getElementById("popupId").textContent=id?"ID: "+id:"";document.getElementById("popup").classList.remove("hidden");popupActive=true;
+ document.getElementById("popupId").textContent=(id?"ID: "+id:"")+(extra?" - "+extra:"");document.getElementById("popup").classList.remove("hidden");popupActive=true;
  if(navigator.vibrate)navigator.vibrate(type==="popupAllowed"?120:[220,80,220]);
- popupTimer=setTimeout(()=>{document.getElementById("popup").classList.add("hidden");popupActive=false;if(cameraRunning&&!busy)setStatus("","CAMERA READY",["Ready for next guest QR scan."]);},1100);
+ popupTimer=setTimeout(()=>{document.getElementById("popup").classList.add("hidden");popupActive=false},type==="popupAllowed"?1100:1800);
 }
-function jsonpScan(id,gate,day){
+function updateSyncInfo(){
+ document.getElementById("statGuests").textContent=guests.size;
+ const done=new Set([...serverDone.keys(),...localDone.keys()]);
+ document.getElementById("statDone").textContent=done.size;
+ const today=indiaDateKey();
+ document.getElementById("statMine").textContent=history.filter(h=>h.date===today&&h.local==="MATCH").length;
+ document.getElementById("statPending").textContent=queue.length;
+ const note=document.getElementById("syncNote");
+ note.className=syncError?"err":"";
+ note.textContent=syncError?"Sync problem: "+syncError+" (entries are safe on this phone, retrying)":
+  (lastSyncAt?"Last synced with Sheet at "+indiaTime(lastSyncAt):"Not synced yet.");
+}
+
+function jsonp(params,timeoutMs){
  return new Promise((resolve,reject)=>{
-  const callback="occlusionCallback"+(++callbackCounter),script=document.createElement("script");let finished=false,timer;
-  function cleanup(){script.remove();try{delete window[callback]}catch(e){}clearTimeout(timer)}
+  const callback="occlusionCallback"+(++callbackCounter)+"_"+Date.now(),script=document.createElement("script");let finished=false,timer;
+  function cleanup(){script.remove();window[callback]=function(){};clearTimeout(timer)}
   function finish(fn,value){if(finished)return;finished=true;cleanup();fn(value)}
   window[callback]=data=>finish(resolve,data);
-  script.onerror=()=>finish(reject,new Error("Apps Script load nahi hua. Deployment access check karein."));
-  script.src=API_URL+"?"+new URLSearchParams({action:"scan",id:id,gate:gate,day:String(day),callback:callback});
-  timer=setTimeout(()=>finish(reject,new Error("Server response nahi aaya. Internet/deployment check karein.")),15000);
+  script.onerror=()=>finish(reject,new Error("Apps Script load nahi hua. Internet/deployment check karein."));
+  script.src=API_URL+"?"+new URLSearchParams(Object.assign({},params,{callback:callback}));
+  timer=setTimeout(()=>finish(reject,new Error("Server response nahi aaya.")),timeoutMs||15000);
   document.body.appendChild(script);
  });
 }
-async function verifyId(rawId){
- const id=String(rawId||"").trim().toUpperCase();if(!id){setStatus("bad","ID REQUIRED",["Scan QR or enter guest ID."]);return}
- if(busy)return;const day=activeDay();if(!day){setStatus("bad","EVENT NOT ACTIVE",["Scanning is unavailable today."]);return}
- busy=true;setStatus("warn","CHECKING ENTRY...",["ID: "+id]);
- try{
-  const gate=document.getElementById("gate").value,data=await jsonpScan(id,gate,day);
-  if(!data||data.error){setStatus("bad","SERVER ERROR",[data&&data.error?data.error:"Unexpected response."]);showPopup("popupError","SERVER ERROR","",id)}
-  else if(data.duplicate){setStatus("warn","DUPLICATE ENTRY",["Name: "+(data.name||""),"ID: "+(data.id||id),"Already checked in for Day "+day]);showPopup("popupDuplicate","DUPLICATE ENTRY",data.name,data.id||id)}
-  else if(data.ok){setStatus("good","ENTRY ALLOWED",["Name: "+(data.name||""),"ID: "+(data.id||id),"Gate: "+(data.gate||gate),"Time: "+(data.time||"")]);showPopup("popupAllowed","ENTRY ALLOWED",data.name,data.id||id)}
-  else{setStatus("bad","ENTRY NOT ALLOWED",["Guest ID not found.","ID: "+(data.id||id)]);showPopup("popupDenied","ENTRY NOT ALLOWED",data.name,data.id||id)}
- }catch(err){setStatus("bad","CONNECTION ERROR",[String(err.message||err)]);showPopup("popupError","CONNECTION ERROR","",id)}
- finally{busy=false;document.getElementById("manualId").value=""}
+
+// ---- Guest list: load once, keep a copy on the phone ----
+function saveGuestCache(){saveJson(LS_GUESTS,{day:loadedDay,savedAt:Date.now(),guests:[...guests],done:[...serverDone]})}
+function restoreGuestCache(){
+ const c=loadJson(LS_GUESTS,null);if(!c||c.day!==activeDay()||!Array.isArray(c.guests))return false;
+ guests=new Map(c.guests);serverDone=new Map(c.done||[]);loadedDay=c.day;dataReady=true;return true;
 }
+function rebuildLocalDone(){
+ queue.forEach(q=>{if(q.local==="MATCH"&&q.day===loadedDay&&!serverDone.has(q.id))localDone.set(q.id,q.time)});
+}
+async function loadData(silent){
+ const day=activeDay();if(!day)return;
+ if(!silent)setStatus("warn","LOADING GUEST LIST...",["Please wait."]);
+ try{
+  const data=await jsonp({action:"init"},30000);
+  if(!data||data.error||!Array.isArray(data.guests))throw new Error(data&&data.error?data.error:"Unexpected response.");
+  guests=new Map(data.guests);serverDone=new Map(Object.entries(data.done||{}));loadedDay=data.day;dataReady=true;
+  for(const id of [...localDone.keys()])if(serverDone.has(id))localDone.delete(id);
+  rebuildLocalDone();saveGuestCache();lastSyncAt=Date.now();syncError="";
+  if(!silent)setStatus("good","READY TO SCAN",[guests.size+" guests loaded.",serverDone.size+" already checked in for Day "+loadedDay+"."]);
+ }catch(err){
+  syncError=String(err.message||err);
+  if(!silent){
+   if(dataReady)setStatus("warn","OFFLINE MODE",["Using guest list saved on this phone ("+guests.size+" guests).","Entries will sync when internet is back."]);
+   else setStatus("bad","GUEST LIST NOT LOADED",[syncError,"Check internet and tap Reload Data."]);
+  }
+ }
+ updateSyncInfo();
+}
+async function pollDone(){
+ if(!dataReady||polling||document.hidden)return;
+ polling=true;
+ try{
+  const data=await jsonp({action:"done"},15000);
+  if(data&&!data.error&&data.day===loadedDay){
+   serverDone=new Map(Object.entries(data.done||{}));
+   for(const id of [...localDone.keys()])if(serverDone.has(id))localDone.delete(id);
+   rebuildLocalDone();saveGuestCache();lastSyncAt=Date.now();if(!queue.length)syncError="";
+   if(data.guestCount!==guests.size)loadData(true);
+  }
+ }catch(e){}
+ finally{polling=false;updateSyncInfo()}
+}
+
+// ---- Scan: decide instantly on the phone, queue for the Sheet ----
+function verifyId(rawId){
+ const id=String(rawId||"").trim().toUpperCase();document.getElementById("manualId").value="";
+ if(!id){setStatus("bad","ID REQUIRED",["Scan QR or enter guest ID."]);return}
+ const day=activeDay();if(!day){setStatus("bad","EVENT NOT ACTIVE",["Scanning is unavailable today."]);return}
+ if(!dataReady){setStatus("bad","GUEST LIST NOT LOADED",["Check internet and tap Reload Data."]);showPopup("popupError","LIST NOT LOADED","",id);return}
+ if(day!==loadedDay){initializeDate();loadData(false);return}
+ const gate=document.getElementById("gate").value,ts=Date.now(),time=indiaTime(ts),name=guests.get(id)||"";
+ let local;
+ if(!guests.has(id))local="NO MATCH";
+ else if(isDone(id))local="DUPLICATE";
+ else{local="MATCH";localDone.set(id,time)}
+ const cid=ts.toString(36)+Math.random().toString(36).slice(2,8);
+ queue.push({cid,id,gate,day,ts,time,local});
+ history.push({cid,date:indiaDateKey(ts),time,day,gate,id,name,local,server:"",synced:false});
+ saveJson(LS_QUEUE,queue);saveJson(LS_HISTORY,history);
+
+ if(local==="MATCH"){setStatus("good","ENTRY ALLOWED",["Name: "+name,"ID: "+id,"Gate: "+gate,"Time: "+time]);showPopup("popupAllowed","ENTRY ALLOWED",name,id)}
+ else if(local==="DUPLICATE"){const t=doneTime(id);setStatus("warn","DUPLICATE ENTRY",["Name: "+name,"ID: "+id,"Already checked in for Day "+day+(t?" at "+t:"")]);showPopup("popupDuplicate","DUPLICATE ENTRY",name,id,t?"entered "+t:"")}
+ else{setStatus("bad","ENTRY NOT ALLOWED",["Guest ID not found.","ID: "+id]);showPopup("popupDenied","ENTRY NOT ALLOWED","",id)}
+ updateSyncInfo();flushSoon(0);
+}
+function flushSoon(delay){clearTimeout(flushTimer);flushTimer=setTimeout(flushQueue,delay)}
+async function flushQueue(){
+ if(flushing)return;
+ const day=activeDay();
+ // Entries from an earlier day can't be accepted by the Sheet any more; keep them in history/CSV only.
+ const stale=queue.filter(q=>q.day!==day);
+ if(stale.length){
+  const staleIds=new Set(stale.map(q=>q.cid));
+  history.forEach(h=>{if(staleIds.has(h.cid))h.server="NOT SYNCED (day over)"});
+  queue=queue.filter(q=>!staleIds.has(q.cid));saveJson(LS_QUEUE,queue);saveJson(LS_HISTORY,history);
+ }
+ if(!queue.length||!day){updateSyncInfo();return}
+ flushing=true;
+ const batch=queue.slice(0,BATCH_SIZE);
+ try{
+  const data=await jsonp({action:"batch",day:String(day),data:JSON.stringify(batch.map(q=>[q.cid,q.id,q.gate,q.ts,q.local]))},25000);
+  if(!data||data.error||!Array.isArray(data.results))throw new Error(data&&data.error?data.error:"Unexpected response.");
+  const handled=new Set();
+  data.results.forEach(r=>{handled.add(r.cid);applyServerResult(r)});
+  queue=queue.filter(q=>!handled.has(q.cid));
+  saveJson(LS_QUEUE,queue);saveJson(LS_HISTORY,history);saveGuestCache();
+  lastSyncAt=Date.now();syncError="";
+  flushing=false;updateSyncInfo();
+  if(queue.length)flushSoon(200);
+ }catch(err){
+  syncError=String(err.message||err);flushing=false;updateSyncInfo();flushSoon(5000);
+ }
+}
+function applyServerResult(r){
+ const h=history.find(x=>x.cid===r.cid);
+ if(r.result==="MATCH"||r.result==="DUPLICATE")serverDone.set(r.id,r.firstTime||serverDone.get(r.id)||"");
+ if(!h)return;
+ h.server=r.result;h.synced=true;
+ // Another gate let this guest in a moment earlier than this phone could know about.
+ if(h.local==="MATCH"&&r.result==="DUPLICATE"){
+  localDone.delete(r.id);
+  setStatus("warn","LATE DUPLICATE ALERT",["Name: "+(r.name||h.name),"ID: "+r.id,"Entry allowed here at "+h.time+", but already checked in at another gate"+(r.firstTime?" at "+r.firstTime:"")+"."]);
+  showPopup("popupDuplicate","LATE ALERT: DUPLICATE",r.name||h.name,r.id,"already in"+(r.firstTime?" at "+r.firstTime:""));
+ }
+}
+
+// ---- CSV export of everything scanned on this phone ----
+function exportCsv(){
+ if(!history.length){setStatus("warn","NOTHING TO EXPORT",["No scans on this phone yet."]);return}
+ const esc=v=>{const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+ const rows=[["Date","Time","Day","Gate","ID","Name","Phone Result","Sheet Result","Synced"]]
+  .concat(history.map(h=>[h.date,h.time,"Day "+h.day,h.gate,h.id,h.name,h.local,h.server,h.synced?"YES":"NO"]));
+ const blob=new Blob(["﻿"+rows.map(r=>r.map(esc).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download="occlusion26-"+document.getElementById("gate").value.replace(/\s+/g,"-").toLowerCase()+"-"+indiaDateKey()+".csv";
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ---- Camera ----
+async function keepScreenOn(){try{if("wakeLock" in navigator&&cameraRunning&&!document.hidden)wakeLock=await navigator.wakeLock.request("screen")}catch(e){}}
 async function startCamera(){
  if(cameraRunning)return;if(!activeDay()){setStatus("bad","EVENT NOT ACTIVE",["Scanning is unavailable today."]);return}
  if(!window.Html5Qrcode){setStatus("bad","SCANNER LIBRARY ERROR",["Check internet and reload."]);return}
  try{
-  document.getElementById("startBtn").disabled=true;scanner=scanner||new Html5Qrcode("reader");setStatus("warn","STARTING CAMERA...",["Allow camera permission."]);
-  await scanner.start({facingMode:"environment"},{fps:15,qrbox:{width:250,height:250}},decodedText=>{
-   const now=Date.now();if(busy||popupActive||(decodedText===lastId&&now-lastScanAt<900))return;lastId=decodedText;lastScanAt=now;verifyId(decodedText)
+  document.getElementById("startBtn").disabled=true;
+  scanner=scanner||new Html5Qrcode("reader",{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE],experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
+  setStatus("warn","STARTING CAMERA...",["Allow camera permission."]);
+  await scanner.start({facingMode:"environment"},{fps:20,qrbox:{width:250,height:250}},decodedText=>{
+   const now=Date.now();if(popupActive||(decodedText===lastId&&now-lastScanAt<SAME_ID_IGNORE_MS))return;lastId=decodedText;lastScanAt=now;verifyId(decodedText)
   },()=>{});
-  cameraRunning=true;setStatus("","CAMERA READY",["Scan the next guest QR code."]);document.getElementById("reader").scrollIntoView({block:"nearest",behavior:"smooth"});
+  cameraRunning=true;keepScreenOn();
+  setStatus("","CAMERA READY",[dataReady?"Scan the next guest QR code.":"Guest list not loaded yet - tap Reload Data."]);
+  document.getElementById("reader").scrollIntoView({block:"nearest",behavior:"smooth"});
  }catch(err){setStatus("bad","CAMERA ERROR",[String(err.message||err)])}
  finally{document.getElementById("startBtn").disabled=false}
 }
 async function stopCamera(){
  try{if(scanner&&cameraRunning){await scanner.stop();await scanner.clear()}}catch(e){}
- cameraRunning=false;scanner=null;setStatus("","CAMERA STOPPED",["Tap Start Back Camera to resume."]);
+ cameraRunning=false;scanner=null;try{if(wakeLock)await wakeLock.release()}catch(e){}wakeLock=null;
+ setStatus("","CAMERA STOPPED",["Tap Start Back Camera to resume."]);
 }
+
 document.getElementById("startBtn").addEventListener("click",startCamera);
 document.getElementById("stopBtn").addEventListener("click",stopCamera);
 document.getElementById("verifyBtn").addEventListener("click",()=>verifyId(document.getElementById("manualId").value));
 document.getElementById("manualId").addEventListener("keydown",e=>{if(e.key==="Enter")verifyId(e.target.value)});
-initializeDate();
+document.getElementById("reloadBtn").addEventListener("click",()=>{if(initializeDate())loadData(false)});
+document.getElementById("exportBtn").addEventListener("click",exportCsv);
+const gateSelect=document.getElementById("gate");
+try{const g=localStorage.getItem(LS_GATE);if(g)gateSelect.value=g}catch(e){}
+gateSelect.addEventListener("change",()=>{try{localStorage.setItem(LS_GATE,gateSelect.value)}catch(e){}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){keepScreenOn();pollDone();flushSoon(0)}});
+window.addEventListener("online",()=>{flushSoon(0);pollDone()});
+window.addEventListener("beforeunload",e=>{if(queue.length){e.preventDefault();e.returnValue=""}});
+
+if(initializeDate()){
+ if(restoreGuestCache()){rebuildLocalDone();setStatus("","READY TO SCAN",[guests.size+" guests (saved list). Refreshing from Sheet..."])}
+ loadData(dataReady);
+ flushSoon(500);
+}
+updateSyncInfo();
+setInterval(pollDone,POLL_MS);
+setInterval(()=>{const d=activeDay();if(d&&d!==loadedDay&&dataReady){initializeDate();loadData(false)}},60000);
 </script>
 </body>
 </html>
